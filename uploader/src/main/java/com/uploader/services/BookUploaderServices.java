@@ -3,28 +3,48 @@ package com.uploader.services;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.service.IObjectService;
 import com.service.helpers.MultipartFileOM;
+import com.uploader.data.Author;
+import com.uploader.data.Book;
+import com.uploader.dto.BookDto;
+import com.uploader.helpers.TimeHelper;
+import com.uploader.repositories.AuthorRepository;
+import com.uploader.repositories.BookRepository;
 
 @Service
 public class BookUploaderServices {
 
 	private Logger log = LoggerFactory.getLogger(BookUploaderServices.class);
-	@Autowired
-	private Environment env;
+		
 	@Autowired
 	private IObjectService s3Service;
+	
+	@Autowired
+	private AuthorRepository authorRepository;
 
-	public boolean uploadBook(String email, String booktitle, String publisheddate, MultipartFile bookFile) {
+	@Autowired
+	private BookRepository bookRepository;
+
+	public boolean uploadBook(BookDto bookDto, MultipartFile bookFile) {
 		MultipartFileOM file = new MultipartFileOM(bookFile);
 		
-		System.out.println(env.getProperty("s3.accessSecret") + "   " +  env.getProperty("s3.accessKey"));
+		String path = calculatePath(bookDto.getAuthorEmail().toLowerCase(), bookDto.getTitle().toLowerCase(), file.getOriginalFileName());
 		
-		String path = calculatePath(email.toLowerCase(), booktitle.toLowerCase(), file.getOriginalFileName());
+		Author author = authorRepository.getAuthorByEmail(bookDto.getAuthorEmail());
+		
+		if (author == null) {
+			return false;
+		}
+		
+		
+		
+		Book book = new Book(bookDto.getTitle(), bookDto.getShortDescription(), bookDto.getLanguage(), bookDto.getGenre(), bookDto.getFormat(), bookDto.getPublishedDate(), TimeHelper.getCurrentTimeStampFormatted(), path, author.getId(), bookDto.getUuid());
+		bookRepository.save(book);
+		
 		try {
 			s3Service.uploadObject(path, file);
 		} catch (Exception e) {
