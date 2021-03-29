@@ -33,6 +33,7 @@ public class Book {
 	private String uploadedDate;
 	@Column
 	private String documentUrl;
+	
 	@Column
 	private Long authorId;
 	

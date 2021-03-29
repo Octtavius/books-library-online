@@ -1,12 +1,16 @@
 package com.uploader.controllers;
 
 import java.io.IOException;
+import java.util.Optional;
 
 import org.apache.commons.io.IOUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -23,10 +27,15 @@ public class BooksUploaderController {
 	private BookUploaderServices bookUploadService;
 	
 	@PostMapping("/books")
-	public String uploadBook(@RequestPart String email, @RequestPart String title, 
-			@RequestPart String shortDescription,
-			@RequestPart String publishedDate, 
-			@RequestPart String language, @RequestPart String genre, @RequestPart MultipartFile book) {
+	public ResponseEntity<BookDto> uploadBook(
+			@RequestPart("book") MultipartFile book,
+			@RequestParam String email, 
+			@RequestParam String title, 
+			@RequestParam String shortDescription,
+			@RequestParam String publishedDate, 
+			@RequestParam String language, 
+			@RequestParam String genre
+			) {
 		
 		BookDto bookDto = new BookDto(title, shortDescription, language, genre, "text/plain", publishedDate, email, BookUIDGenerator.generateBookId(email));
 				
@@ -34,16 +43,23 @@ public class BooksUploaderController {
 			String bookContent = IOUtils.toString(book.getBytes(), "UTF-8");
 			System.out.println("book content: \n" + bookContent);
 			
-			bookUploadService.uploadBook(bookDto, book);
+		Optional<BookDto> bookResposne = bookUploadService.uploadBook(bookDto, book);
+		
+		System.out.println(bookResposne.isEmpty());
+		System.out.println(bookResposne.isPresent());
+		
+		if (bookResposne.isPresent()) {			
+			return new ResponseEntity<>(
+					bookResposne.get(), HttpStatus.OK);
+		} else {
+			return new ResponseEntity<>(HttpStatus.CONFLICT);			
+		}
 			
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
 		}
 		 
-		return "successfull";
 	}
-	
 	@GetMapping("/say")
 	public String hello() {
 		

@@ -1,5 +1,7 @@
 package com.uploader.services;
 
+import java.util.Optional;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,7 +31,7 @@ public class BookUploaderServices {
 	@Autowired
 	private BookRepository bookRepository;
 
-	public boolean uploadBook(BookDto bookDto, MultipartFile bookFile) {
+	public Optional<BookDto> uploadBook(BookDto bookDto, MultipartFile bookFile) {
 		MultipartFileOM file = new MultipartFileOM(bookFile);
 		
 		String path = calculatePath(bookDto.getAuthorEmail().toLowerCase(), bookDto.getTitle().toLowerCase(), file.getOriginalFileName());
@@ -37,22 +39,26 @@ public class BookUploaderServices {
 		Author author = authorRepository.getAuthorByEmail(bookDto.getAuthorEmail());
 		
 		if (author == null) {
-			return false;
+			return Optional.empty();
 		}
 		
+		Book book = bookRepository.getBookByTitleAndAuthorId(bookDto.getTitle(), bookDto.getAuthorEmail());
 		
+		if (book != null) {
+			return Optional.empty();
+		}
 		
-		Book book = new Book(bookDto.getTitle(), bookDto.getShortDescription(), bookDto.getLanguage(), bookDto.getGenre(), bookDto.getFormat(), bookDto.getPublishedDate(), TimeHelper.getCurrentTimeStampFormatted(), path, author.getId(), bookDto.getUuid());
+		book = new Book(bookDto.getTitle(), bookDto.getShortDescription(), bookDto.getLanguage(), bookDto.getGenre(), bookDto.getFormat(), bookDto.getPublishedDate(), TimeHelper.getCurrentTimeStampFormatted(), path, author.getId(), bookDto.getUuid());
 		bookRepository.save(book);
 		
 		try {
 			s3Service.uploadObject(path, file);
 		} catch (Exception e) {
 			log.error(e.fillInStackTrace().toString());
-			return false;
+			return Optional.empty();
 		}
 		
-		return true;
+		return Optional.of(bookDto);
 	}
 
 	/**
